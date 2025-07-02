@@ -1,0 +1,84 @@
+version: '3.8'
+
+services:
+  # MQTT Broker
+  mosquitto:
+    image: eclipse-mosquitto:2.0
+    container_name: mqtt-broker
+    restart: unless-stopped
+    ports:
+      - "1883:1883"
+      - "9001:9001"
+    volumes:
+      - ./config/mosquitto/mosquitto.conf:/mosquitto/config/mosquitto.conf
+      - mosquitto-data:/mosquitto/data
+      - mosquitto-log:/mosquitto/log
+    networks:
+      - future-platform
+
+  # Integration Controller
+  integration-controller:
+    build: .
+    container_name: integration-controller
+    restart: unless-stopped
+    depends_on:
+      - mosquitto
+    environment:
+      - MQTT_BROKER_URL=mqtt://mosquitto:1883
+      - NODE_ENV=production
+      - LOG_LEVEL=info
+    env_file:
+      - .env
+    networks:
+      - future-platform
+    volumes:
+      - ./logs:/app/logs
+
+  # Video Storage Server (GStreamer + MinIO)
+  minio:
+    image: minio/minio:latest
+    container_name: video-storage
+    restart: unless-stopped
+    ports:
+      - "9000:9000"
+      - "9090:9090"
+    environment:
+      - MINIO_ROOT_USER=minioadmin
+      - MINIO_ROOT_PASSWORD=minioadmin123
+    command: server /data --console-address ":9090"
+    volumes:
+      - minio-data:/data
+    networks:
+      - future-platform
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # GStreamer Recording Service
+  gstreamer-recorder:
+    build: ./docker/gstreamer
+    container_name: gstreamer-recorder
+    restart: unless-stopped
+    depends_on:
+      - minio
+    environment:
+      - MINIO_ENDPOINT=minio:9000
+      - MINIO_ACCESS_KEY=minioadmin
+      - MINIO_SECRET_KEY=minioadmin123
+    ports:
+      - "5000-5003:5000-5003/udp"
+    networks:
+      - future-platform
+    volumes:
+      - ./config/gstreamer:/config
+
+networks:
+  future-platform:
+    driver: bridge
+
+volumes:
+  mosquitto-data:
+  mosquitto-log:
+  minio-data:
