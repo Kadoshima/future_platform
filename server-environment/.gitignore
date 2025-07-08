@@ -1,0 +1,18 @@
+# Dockerが自動生成するデータ・ログ用フォルダ
+server-environment/minio-data/
+server-environment/mosquitto/data/
+server-environment/mosquitto/log/
+
+# Node.jsの依存ライブラリ
+node_modules/
+
+# Pythonの仮想環境
+.venv/
+*.venv
+.venv*
+management_env/
+my_cv_project/
+
+# OSが生成するファイル
+.DS_Store
+Thumbs.db

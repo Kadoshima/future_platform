@@ -1,246 +1,143 @@
-# Future Platform - 統合管理システム
+# リアルタイム行動解析・映像蓄積プラットフォーム (サーバー側)
 
-複数カメラからの人物行動解析データを統合し、イベント駆動でアクションを実行するNode.js/TypeScriptプラットフォーム
+## 1. 概要
 
-## 📋 目次
+### 1.1. プロジェクトの目的
+本プロジェクトの目的は、特定の空間（実験室、オープンキャンパス会場など）に設置された複数台のカメラを用いて、**人物の行動をリアルタイムで解析し、その状況に応じたインタラクションを自動で実行する**ための、汎用性と拡張性を備えたプラットフォームを構築することにある。
 
-- [概要](#概要)
-- [要件定義](#要件定義)
-- [Quick Start](#quick-start)
-- [セットアップ](#セットアップ)
-- [アーキテクチャ](#アーキテクチャ)
-- [設定](#設定)
-- [開発](#開発)
-- [ドキュメント](#ドキュメント)
+具体的には、以下の2つの主要な機能を両立させます。
 
-## 概要
+1.  **リアルタイム・イベント駆動:**
+    空間内の「人の入室」「全員の着席」といった行動の変化を「イベント」として即座に検知し、その情報を中央の管理システムに通知します。管理システムは、このイベントをきっかけ（トリガー）として、動画の再生や音声案内といったアクションを自動で実行します。
 
-本システムは、空間内に設置された複数のカメラ映像をリアルタイムで解析し、人物の行動（入退室、人数、姿勢など）に基づいたイベントを検知します。検知したイベントに応じて動画再生や音声案内などのアクションを自動実行し、同時にカメラ映像を永続的に蓄積します。
+2.  **データの永続化と分析基盤:**
+    リアルタイムのイベント通知と並行して、全てのカメラ映像を常時サーバーにストリーミングし、映像データとして蓄積します。これにより、後から映像を見返しての行動分析や、将来的な機械学習モデルの訓練データとしての再利用が可能になります。
 
-### 主な特徴
+このシステムは、**GitHub**によるコード管理と**Docker**による環境構築の自動化を前提としており、どのマシンにでも簡単に展開（デプロイ）できる、高い移植性を実現します。
 
-- ✅ リアルタイムイベント処理（MQTT通信）
-- ✅ 多数決方式による高精度な人数カウント
-- ✅ 拡張可能なイベントルールとアクション
-- ✅ Docker対応による簡単なデプロイ
-- ✅ 映像の自動録画と永続化（MinIO）
+## 2. システムアーキテクチャ
 
-## 要件定義
+```mermaid
+graph TD
+    subgraph "センシング空間 (Sensing Space)"
+        direction LR
+        RPi1[Raspberry Pi 1 + Cam]
+        RPi2[Raspberry Pi 2 + Cam]
+        RPiN[... and so on]
+    end
 
-### システム要件
+    subgraph "サーバーPC (Docker Host)"
+        subgraph "Docker Network"
+            Controller(統合管理システム<br/>controller.js)
+            Broker[MQTT Broker<br/>Mosquitto]
+            Recorder[録画コンテナ<br/>GStreamer]
+            Storage[オブジェクトストレージ<br/>MinIO]
+        end
+    end
 
-- **センサーノード**: Raspberry Pi 4台 + カメラ
-- **解析エンジン**: YOLOv8（人物検出）、MediaPipe（姿勢推定）
-- **通信プロトコル**: MQTT（状態・イベント）、UDP/RTP（映像ストリーム）
-- **データ形式**: JSON（メッセージ）、MP4（録画映像）
+    subgraph "出力 (Output)"
+        VideoPlayer(動画再生システム)
+        AudioPlayer(音声案内システム)
+    end
 
-### 検知イベント
+    RPi1 -- "映像 (UDP)" --> Recorder
+    RPi2 -- "映像 (UDP)" --> Recorder
 
-| イベント名 | 説明 | デフォルトアクション |
-|-----------|------|-------------------|
-| `PERSON_ENTERED` | 人が空間に入室 | 音声案内「いらっしゃいませ」 |
-| `SITTING_CONFIRMED` | 着席を確認（2秒間） | ウェルカム動画再生 |
-| `PERSON_STOOD_UP` | 着席者が立ち上がり | - |
-| `ALL_PEOPLE_LEFT` | 全員が退室 | アイドル動画をループ再生 |
+    RPi1 -- "イベント (MQTT)" --> Broker
+    RPi2 -- "イベント (MQTT)" --> Broker
 
-### メッセージフォーマット
-
-詳細は[docs/message-format.md](docs/message-format.md)を参照
-
-## Quick Start
-
-### 前提条件
-
-- Docker & Docker Compose
-- Node.js 20+ (開発時のみ)
-- Git
-
-### 最速セットアップ（3分）
-
-```bash
-# 1. リポジトリのクローン
-git clone https://github.com/yourorg/future_platform.git
-cd future_platform
-
-# 2. 環境変数の設定
-cp .env.example .env
-
-# 3. Dockerコンテナの起動
-docker-compose up -d
-
-# 4. ログの確認
-docker-compose logs -f integration-controller
+    Broker -- "イベントを中継" --> Controller
+    Recorder -- "録画ファイルを保存" --> Storage
+    Controller -- "動画再生指示" --> VideoPlayer
+    Controller -- "音声案内指示" --> AudioPlayer
 ```
 
-これで統合管理システムが起動します！
+### 2.1. 各コンポーネントの役割
 
-### 動作確認
+* **センサーノード (Raspberry Pi):**
+    * **責務:** 担当するカメラ映像のリアルタイム解析と、結果の送信に特化する「目」。
+    * **言語:** Python
+    * **機能:** 人物検出(YOLOv8)、姿勢推定(MediaPipe)を実行し、解析結果（状態・イベント）をMQTTで、映像をFFmpeg/GStreamerでそれぞれ送信する。
+* **MQTTブローカー:**
+    * **責務:** 全てのRaspberry Piからの状態・イベント通知を中継するメッセージングハブ。
+    * **技術:** Mosquitto
+* **統合管理システム (Controller):**
+    * **責務:** MQTTで受信したイベントに基づき、システム全体の動作を決定し、各所へ指示を出す頭脳。
+    * **言語:** **Node.js**
+    * **機能:** イベントに応じた動画再生や音声案内のトリガー、複数カメラからの情報（人数など）の統合・判断を行う。
+* **映像蓄積サーバー (Recorder + Storage):**
+    * **責務:** Raspberry Piから送られてくる全カメラの映像ストリームを受信・録画し、恒久的なストレージに保存する。
+    * **技術:** **Docker**, GStreamer, **MinIO**
+* **出力システム (Player):**
+    * **責務:** 統合管理システムからの指示に基づき、ユーザーへのフィードバック（動画・音声）を再生する。
 
-```bash
-# MQTTでテストメッセージを送信
-docker exec -it mqtt-broker mosquitto_pub -t "sensor/camera1/event" -m '{
-  "type": "event",
-  "camera_id": "camera1",
-  "timestamp": 1234567890,
-  "event": {
-    "name": "PERSON_ENTERED"
-  }
-}'
-```
+### 2.2. データフローの要点
+このシステムの鍵は、**「映像の流れ」**と**「情報の流れ」**を完全に分離している点です。
+* **映像の流れ (UDP):** 大容量の映像データは、高速なUDPプロトコルで、センサーノードから録画コンテナへ一方的に送り続けられます。
+* **情報の流れ (MQTT):** 「誰かが座った」といった軽量かつ重要なイベント情報は、信頼性の高いMQTTプロトコルで、ブローカーを介して正確に統合管理システムへ届けられます。
 
-## セットアップ
+この分離により、システム全体の安定性とリアルタイム性を両立させています。
 
-### 開発環境のセットアップ
+## 3. セットアップと実行
 
-```bash
-# 依存関係のインストール
-npm install
+本サーバー環境はDockerによって完全にコンテナ化されているため、前提条件を満たしたどのマシンでも、以下の手順で簡単に再現・起動できます。
 
-# TypeScriptのビルド
-npm run build
+### 3.1. 前提条件
+* Docker Desktop
+* Git
 
-# 開発サーバーの起動（ホットリロード付き）
-npm run dev
-```
+### 3.2. 実行手順
+1.  **リポジトリのクローン:**
+    ```bash
+    git clone [このリポジトリのURL]
+    ```
+2.  **ディレクトリの移動:**
+    ```bash
+    cd [リポジトリ名]
+    ```
+3.  **Dockerコンテナのビルドと起動:**
+    ```bash
+    docker compose up --build
+    ```
+    （バックグラウンドで起動する場合は `-d` オプションを追加）
 
-### 本番環境のセットアップ
+4.  **動作確認:**
+    * **MinIO管理画面:** `http://localhost:9002` にアクセス (ID/PW: `minioadmin`)
+    * **MQTT Broker:** ポート `1883` で待機
+    * **映像受信:** UDPポート `5000` で待機
 
-#### 1. 環境変数の設定
-
-`.env`ファイルを編集して環境に合わせて設定：
-
-```env
-# MQTT設定
-MQTT_BROKER_URL=mqtt://your-broker:1883
-MQTT_USERNAME=your-username
-MQTT_PASSWORD=your-password
-
-# アクションシステムのAPI
-VIDEO_PLAYER_API_URL=http://video-player:8080
-AUDIO_PLAYER_API_URL=http://audio-player:8081
-
-# 人数カウント設定
-MAJORITY_VOTE_THRESHOLD=3
-```
-
-#### 2. Dockerイメージのビルド
-
-```bash
-docker-compose build
-```
-
-#### 3. サービスの起動
-
-```bash
-docker-compose up -d
-```
-
-### Raspberry Piのセットアップ
-
-センサーノード側の設定については[docs/raspberry-pi-setup.md](docs/raspberry-pi-setup.md)を参照
-
-## アーキテクチャ
+## 4. ディレクトリ構造
 
 ```
-┌─────────────────────────────────────────────────────────────┐
-│                     センシング空間                           │
-│  ┌─────────┐  ┌─────────┐  ┌─────────┐  ┌─────────┐     │
-│  │ RPi #1  │  │ RPi #2  │  │ RPi #3  │  │ RPi #4  │     │
-│  │ +Camera │  │ +Camera │  │ +Camera │  │ +Camera │     │
-│  └────┬────┘  └────┬────┘  └────┬────┘  └────┬────┘     │
-│       │            │            │            │             │
-└───────┼────────────┼────────────┼────────────┼─────────────┘
-        │            │            │            │
-        ├────────────┴────────────┴────────────┤ MQTT/JSON
-        │                                       │ UDP/RTP
-        ▼                                       ▼
-┌─────────────────┐                    ┌──────────────────┐
-│  MQTT Broker    │                    │ 映像蓄積サーバー  │
-│  (Mosquitto)    │                    │ (GStreamer+MinIO)│
-└────────┬────────┘                    └──────────────────┘
-         │
-         ▼
-┌─────────────────────────────────────────────────────────┐
-│              統合管理システム (本リポジトリ)               │
-│  ┌─────────────┐  ┌──────────────┐  ┌──────────────┐  │
-│  │Event Process│  │People Counter│  │Action Execute│  │
-│  └─────────────┘  └──────────────┘  └──────────────┘  │
-└─────────────────────────────────────────────────────────┘
-                              │
-                              ▼
-                    ┌─────────────────┐
-                    │ 出力システム     │
-                    │ (動画/音声再生) │
-                    └─────────────────┘
+future-lab/
+├── .git/
+├── README.md
+└── server-environment/  <-- ★ここにサーバー環境をまとめる
+    ├── docker-compose.yml
+    ├── mosquitto/
+    │   └── config/
+    │       └── mosquitto.conf
+    └── recorder/
+        ├── Dockerfile
+        └── recorder.sh
 ```
 
-詳細な設計については[docs/architecture.md](docs/architecture.md)を参照
+## 5. 機能要件
 
-## 設定
+* **FR-1: リアルタイム行動解析:** 各センサーノードは、人物の人数と姿勢（「SITTING」「STANDING」）をリアルタイムに推定すること。
+* **FR-2: イベント検知:** 各センサーノードは、「入室」「着席完了」「退室」などの状態変化を「イベント」として検知できること。
+* **FR-3: 状態・イベント通知:** 全ての通知は、定義された統一JSON形式でMQTTを介して送信されること。
+* **FR-4: 映像データの永続化:** 全てのカメラからの映像ストリームを常時受信し、カメラIDごとに整理されたバケットに動画ファイルとして保存すること。
+* **FR-5: イベント駆動のアクション実行:** 統合管理システムは、イベント通知に応じて動画再生や音声案内などのアクションを実行できること。
+* **FR-6: 人数情報の統合:** 統合管理システムは、複数カメラからの人数情報が異なる場合、多数決方式で正式な人数を決定すること。
 
-### イベントルールのカスタマイズ
+## 6. 非機能要件
 
-`src/services/event-processor.service.ts`でルールを追加：
+* **NFR-1: パフォーマンス:** イベント検知からアクション実行までの遅延を最小限に抑えること。
+* **NFR-2: 拡張性・汎用性:** センサーノードの増減や、検知イベント・アクションの種類を容易に変更・追加できる設計であること。
+* **NFR-3: 開発・運用・管理の容易性:** **GitHub**によるコードのバージョン管理と、**Docker**による環境構築の自動化を行うこと。
+* **NFR-4: 開発環境:** ノートパソコン1台で、システム全体の動作をシミュレートできること。
 
-```typescript
-// カスタムルールの例
-this.addEventRule({
-  eventName: 'PERSON_ENTERED',
-  condition: (event) => event.camera_id === 'camera1',
-  actions: [{
-    type: 'VIDEO_PLAY',
-    payload: { videoId: 'special_welcome' },
-    priority: 'HIGH'
-  }]
-});
-```
-
-### API設定
-
-外部システムとの連携設定は[docs/api-integration.md](docs/api-integration.md)を参照
-
-## 開発
-
-### コマンド一覧
-
-```bash
-npm run dev          # 開発サーバー起動
-npm run build        # TypeScriptビルド
-npm run lint         # ESLintチェック
-npm test            # テスト実行
-npm run test:watch  # テスト（ウォッチモード）
-npm run test:coverage # カバレッジレポート生成
-```
-
-### プロジェクト構造
-
-```
-src/
-├── config/          # 設定管理
-├── controllers/     # メインコントローラー
-├── interfaces/      # TypeScript型定義
-├── services/        # ビジネスロジック
-│   ├── mqtt.service.ts           # MQTT通信
-│   ├── event-processor.service.ts # イベント処理
-│   ├── action-executor.service.ts # アクション実行
-│   └── people-counter.service.ts  # 人数カウント
-└── utils/           # ユーティリティ
-```
-
-## ドキュメント
-
-詳細なドキュメントは[docs/](docs/)ディレクトリを参照してください：
-
-- [ドキュメントの読み方](docs/README.md)
-- [アーキテクチャ詳細](docs/architecture.md)
-- [メッセージフォーマット](docs/message-format.md)
-- [実装の設計判断](docs/design-decisions.md)
-- [トラブルシューティング](docs/troubleshooting.md)
-
-## ライセンス
-
-ISC License
-
-## コントリビューション
-
-Pull Requestを歓迎します。大きな変更の場合は、まずIssueを作成して変更内容を議論してください。
+## 7. スコープ外
+* 本プロジェクトのスコープは、上記プラットフォームの構築と、基本的なイベント検知・アクション実行の実現までとする。
+* MinIOに蓄積された映像データを用いた、高度な機械学習や統計分析そのものは、本プロジェクトの範囲外（将来の展望）とする。

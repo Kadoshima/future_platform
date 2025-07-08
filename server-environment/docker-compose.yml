@@ -1,0 +1,42 @@
+# docker-compose.yml
+
+services:
+  # サービス1: MQTTブローカー
+  broker:
+    # eclipse-mosquittoの公式イメージを使用
+    image: eclipse-mosquitto:latest
+    # PCのポートとコンテナのポートを接続
+    ports:
+      - "1883:1883"
+    # 設定ファイルとデータ保存場所をPCのフォルダと同期
+    volumes:
+      - ./mosquitto/config:/mosquitto/config
+      - ./mosquitto/data:/mosquitto/data
+      - ./mosquitto/log:/mosquitto/log
+    # コンテナ内でのファイルの書き込み権限エラーを避けるための設定
+    user: "1000:1000"
+
+  # サービス2: MinIO (オブジェクトストレージ)
+  minio:
+    image: minio/minio:latest
+    ports:
+      # ★★★ MQTTのポートと衝突しないように9002番に変更 ★★★
+      - "9000:9000"
+      - "9002:9002" 
+    volumes:
+      - ./minio-data:/data
+    environment:
+      MINIO_ROOT_USER: minioadmin
+      MINIO_ROOT_PASSWORD: minioadmin
+    # ★★★ Web管理画面のアドレスを9002番に変更 ★★★
+    command: server /data --console-address ":9002"
+
+  # サービス3: 録画用コンテナ
+  recorder:
+    build: ./recorder
+    # ★★★ brokerとminioが起動してからrecorderが起動するように設定 ★★★
+    depends_on:
+      - broker
+      - minio
+    ports:
+      - "5000:5000/udp"
