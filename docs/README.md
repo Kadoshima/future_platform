@@ -5,6 +5,7 @@ Future Platform プロジェクトのドキュメント一覧
 ## 📖 基本ドキュメント
 
 - **[ディレクトリ構造ガイド](directory-structure.md)** - プロジェクトの構造と管理方法
+- **[セットアップガイド](setup-guide.md)** - 具体的な作業手順とトラブル対処法
 - **[アーキテクチャ詳細](architecture.md)** - システム全体の設計と構成
 - **[メッセージフォーマット](message-format.md)** - MQTT通信の仕様
 

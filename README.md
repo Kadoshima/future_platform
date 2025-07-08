@@ -187,7 +187,9 @@ docker-compose up -d
 
 **重要**: `server-environment/`内の`minio-data/`、`mosquitto/data/`等は自動生成されるため、**Gitにコミットしないでください**。これらのディレクトリは`.gitignore`で除外されています。
 
-完全なディレクトリ構造と管理方法については、**[docs/directory-structure.md](docs/directory-structure.md)** を参照してください。
+**ディレクトリ構造でお困りの場合は**:
+- 完全なガイド: **[docs/directory-structure.md](docs/directory-structure.md)**
+- 具体的な作業手順: **[docs/setup-guide.md](docs/setup-guide.md)**
 
 ## 設定
 
@@ -257,6 +259,7 @@ future_platform/
 
 - [ドキュメントの読み方](docs/README.md)
 - [ディレクトリ構造ガイド](docs/directory-structure.md) **← ディレクトリ構造と管理方法**
+- [セットアップガイド](docs/setup-guide.md) **← 具体的な作業手順**
 - [アーキテクチャ詳細](docs/architecture.md)
 - [メッセージフォーマット](docs/message-format.md)
 - [実装の設計判断](docs/design-decisions.md)
