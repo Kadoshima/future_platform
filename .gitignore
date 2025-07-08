@@ -9,3 +9,32 @@ coverage/
 *.swp
 *.swo
 .nyc_output/
+
+# Server environment data directories (should not be committed)
+server-environment/minio-data/
+server-environment/mosquitto/data/
+server-environment/mosquitto/log/
+
+# MinIO system files (auto-generated)
+**/.minio.sys/
+**/minio-data/.minio.sys/
+
+# Docker build artifacts
+.dockerignore.bak
+
+# Temporary video files
+**/videos/
+*.mp4
+*.avi
+*.mov
+
+# Python virtual environments (for Raspberry Pi development)
+.venv/
+*.venv
+.venv*
+__pycache__/
+*.pyc
+*.pyo
+
+# Build and cache files
+tsconfig.tsbuildinfo

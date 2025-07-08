@@ -176,6 +176,19 @@ docker-compose up -d
 
 詳細な設計については[docs/architecture.md](docs/architecture.md)を参照
 
+## ディレクトリ構造について
+
+このプロジェクトは以下の構造で構成されています：
+
+- **`src/`**: Node.js/TypeScriptによる統合管理システム（本リポジトリのメイン）
+- **`server-environment/`**: Docker Composeによるサーバー環境設定（PR #1で追加予定）
+- **`docs/`**: プロジェクトドキュメント
+- **`config/`, `docker/`**: 外部サービス設定
+
+**重要**: `server-environment/`内の`minio-data/`、`mosquitto/data/`等は自動生成されるため、**Gitにコミットしないでください**。これらのディレクトリは`.gitignore`で除外されています。
+
+完全なディレクトリ構造と管理方法については、**[docs/directory-structure.md](docs/directory-structure.md)** を参照してください。
+
 ## 設定
 
 ### イベントルールのカスタマイズ
@@ -215,23 +228,35 @@ npm run test:coverage # カバレッジレポート生成
 ### プロジェクト構造
 
 ```
-src/
-├── config/          # 設定管理
-├── controllers/     # メインコントローラー
-├── interfaces/      # TypeScript型定義
-├── services/        # ビジネスロジック
-│   ├── mqtt.service.ts           # MQTT通信
-│   ├── event-processor.service.ts # イベント処理
-│   ├── action-executor.service.ts # アクション実行
-│   └── people-counter.service.ts  # 人数カウント
-└── utils/           # ユーティリティ
+future_platform/
+├── src/                      # 統合管理システム（Node.js/TypeScript）
+│   ├── config/              # 設定管理
+│   ├── controllers/         # メインコントローラー
+│   ├── interfaces/          # TypeScript型定義
+│   ├── services/            # ビジネスロジック
+│   │   ├── mqtt.service.ts           # MQTT通信
+│   │   ├── event-processor.service.ts # イベント処理
+│   │   ├── action-executor.service.ts # アクション実行
+│   │   └── people-counter.service.ts  # 人数カウント
+│   └── utils/               # ユーティリティ
+├── docs/                     # プロジェクトドキュメント
+├── config/                   # 外部サービス設定（Mosquitto等）
+├── docker/                   # Docker関連ファイル
+└── server-environment/       # サーバー環境設定（PR #1で追加予定）
+    ├── docker-compose.yml   # サーバー用Docker Compose
+    ├── mosquitto/           # MQTT設定
+    ├── recorder/            # 映像録画サービス
+    └── minio-data/          # MinIOデータ（自動生成・Git除外）
 ```
+
+**詳細なディレクトリ構造については[docs/directory-structure.md](docs/directory-structure.md)を参照してください。**
 
 ## ドキュメント
 
 詳細なドキュメントは[docs/](docs/)ディレクトリを参照してください：
 
 - [ドキュメントの読み方](docs/README.md)
+- [ディレクトリ構造ガイド](docs/directory-structure.md) **← ディレクトリ構造と管理方法**
 - [アーキテクチャ詳細](docs/architecture.md)
 - [メッセージフォーマット](docs/message-format.md)
 - [実装の設計判断](docs/design-decisions.md)
