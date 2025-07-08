@@ -10,7 +10,7 @@ services:
       - "1883:1883"
       - "9001:9001"
     volumes:
-      - ./config/mosquitto/mosquitto.conf:/mosquitto/config/mosquitto.conf
+      - ./main-system/config/mosquitto/mosquitto.conf:/mosquitto/config/mosquitto.conf
       - mosquitto-data:/mosquitto/data
       - mosquitto-log:/mosquitto/log
     networks:
@@ -18,7 +18,7 @@ services:
 
   # Integration Controller
   integration-controller:
-    build: .
+    build: ./main-system
     container_name: integration-controller
     restart: unless-stopped
     depends_on:
@@ -28,7 +28,7 @@ services:
       - NODE_ENV=production
       - LOG_LEVEL=info
     env_file:
-      - .env
+      - ./main-system/.env
     networks:
       - future-platform
     volumes:

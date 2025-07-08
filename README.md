@@ -90,10 +90,12 @@ graph TD
 1.  **リポジトリのクローン:**
     ```bash
     git clone [このリポジトリのURL]
+    cd future_platform
     ```
-2.  **ディレクトリの移動:**
+2.  **環境変数の設定:**
     ```bash
-    cd [リポジトリ名]
+    cp main-system/.env.example main-system/.env
+    # 必要に応じて.envファイルを編集
     ```
 3.  **Dockerコンテナのビルドと起動:**
     ```bash
@@ -102,24 +104,47 @@ graph TD
     （バックグラウンドで起動する場合は `-d` オプションを追加）
 
 4.  **動作確認:**
-    * **MinIO管理画面:** `http://localhost:9002` にアクセス (ID/PW: `minioadmin`)
+    * **MinIO管理画面:** `http://localhost:9090` にアクセス (ID/PW: `minioadmin`)
     * **MQTT Broker:** ポート `1883` で待機
-    * **映像受信:** UDPポート `5000` で待機
+    * **映像受信:** UDPポート `5000-5003` で待機
 
 ## 4. ディレクトリ構造
 
 ```
-future-lab/
+future_platform/
 ├── .git/
 ├── README.md
-└── server-environment/  <-- ★ここにサーバー環境をまとめる
+├── docker-compose.yml
+├── Dockerfile
+├── docs/                           # 各種ドキュメント
+│   ├── architecture.md
+│   ├── design-decisions.md
+│   ├── api-integration.md
+│   └── ...
+├── main-system/                    # ★統合管理システム
+│   ├── package.json
+│   ├── tsconfig.json
+│   ├── .env
+│   ├── src/
+│   │   ├── index.ts
+│   │   ├── config/
+│   │   ├── controllers/
+│   │   ├── interfaces/
+│   │   ├── services/
+│   │   └── utils/
+│   └── config/
+│       └── mosquitto/
+│           └── mosquitto.conf
+├── docker/                         # Docker関連ファイル
+│   └── gstreamer/
+│       ├── Dockerfile
+│       └── recorder.py
+├── MQTT-broker/                    # MQTT設定
+├── recorder-server/                # 録画サーバー
+└── server-environment/            # サーバー環境設定
     ├── docker-compose.yml
     ├── mosquitto/
-    │   └── config/
-    │       └── mosquitto.conf
     └── recorder/
-        ├── Dockerfile
-        └── recorder.sh
 ```
 
 ## 5. 機能要件
