@@ -1,83 +1,64 @@
+# docker-compose.yml
+
 version: '3.8'
 
 services:
-  # MQTT Broker
+  # サービス1: MQTT Broker
   mosquitto:
-    image: eclipse-mosquitto:2.0
+    image: eclipse-mosquitto:latest
     container_name: mqtt-broker
     restart: unless-stopped
     ports:
       - "1883:1883"
-      - "9001:9001"
+      - "9001:9001" # WebSocket用ポート
     volumes:
-      - ./main-system/config/mosquitto/mosquitto.conf:/mosquitto/config/mosquitto.conf
+      - ./mosquitto/config:/mosquitto/config
       - mosquitto-data:/mosquitto/data
       - mosquitto-log:/mosquitto/log
     networks:
-      - future-platform
+      - future_platform
 
-  # Integration Controller
-  integration-controller:
-    build: ./main-system
-    container_name: integration-controller
-    restart: unless-stopped
-    depends_on:
-      - mosquitto
-    environment:
-      - MQTT_BROKER_URL=mqtt://mosquitto:1883
-      - NODE_ENV=production
-      - LOG_LEVEL=info
-    env_file:
-      - ./main-system/.env
-    networks:
-      - future-platform
-    volumes:
-      - ./logs:/app/logs
-
-  # Video Storage Server (GStreamer + MinIO)
+  # サービス2: MinIO (オブジェクトストレージ)
   minio:
     image: minio/minio:latest
-    container_name: video-storage
+    container_name: minio-storage
     restart: unless-stopped
     ports:
       - "9000:9000"
-      - "9090:9090"
+      - "9090:9090" # WebUIポート
     environment:
-      - MINIO_ROOT_USER=minioadmin
-      - MINIO_ROOT_PASSWORD=minioadmin123
+      MINIO_ROOT_USER: minioadmin
+      MINIO_ROOT_PASSWORD: minioadmin123
     command: server /data --console-address ":9090"
     volumes:
       - minio-data:/data
     networks:
-      - future-platform
+      - future_platform
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
       interval: 30s
       timeout: 10s
       retries: 3
 
-  # GStreamer Recording Service
+  # サービス3: GStreamer録画コンテナ
   gstreamer-recorder:
-    build: ./docker/gstreamer
+    build: ./gstreamer-recorder
     container_name: gstreamer-recorder
     restart: unless-stopped
     depends_on:
       - minio
-    environment:
-      - MINIO_ENDPOINT=minio:9000
-      - MINIO_ACCESS_KEY=minioadmin
-      - MINIO_SECRET_KEY=minioadmin123
     ports:
+      # 4台のカメラを想定し、ポート5000から5003までを公開
       - "5000-5003:5000-5003/udp"
     networks:
-      - future-platform
-    volumes:
-      - ./config/gstreamer:/config
+      - future_platform
 
+# Dockerネットワークの定義
 networks:
-  future-platform:
+  future_platform:
     driver: bridge
 
+# Dockerが管理するボリュームの定義
 volumes:
   mosquitto-data:
   mosquitto-log:
