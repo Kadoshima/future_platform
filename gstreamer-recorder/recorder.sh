@@ -10,7 +10,15 @@ BUCKET_NAME="camera1"
 VIDEO_DIR="/app/videos"
 
 echo "[Recorder] 起動しました。MinIOが利用可能になるのを待ちます..."
-sleep 15 
+for i in {1..30}; do
+  mc alias set $MINIO_ALIAS $MINIO_SERVER $MINIO_USER $MINIO_PASSWORD && break
+  echo "[Recorder] MinIOがまだ準備できていません。再試行します ($i/30)..."
+  sleep 1
+done
+if [ $i -eq 30 ]; then
+  echo "[Recorder] MinIOが準備できませんでした。スクリプトを終了します。" >&2
+  exit 1
+fi
 
 echo "[Recorder] MinIOクライアントを設定します..."
 mc alias set $MINIO_ALIAS $MINIO_SERVER $MINIO_USER $MINIO_PASSWORD
