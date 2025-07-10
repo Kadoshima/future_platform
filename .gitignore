@@ -1,11 +1,55 @@
-node_modules/
-dist/
-.env
-*.log
+# .gitignore (最終版)
+
+# # # 一般的な除外ファイル # # #
+
+# OSが自動で作成するシステムファイル
 .DS_Store
-coverage/
+Thumbs.db
+
+# IDEやエディタが生成する設定フォルダ
 .idea/
 .vscode/
+
+# Vim スワップファイル
 *.swp
 *.swo
+
+# ログファイル
+*.log
+logs/
+
+# 環境変数を定義する.envファイル (機密情報)
+.env
+*.env
+
+# # # Node.js関連 # # #
+
+# Node.jsの依存ライブラリ (非常に大きい)
+node_modules/
+
+# ビルド成果物
+dist/
+
+# テストカバレッジレポート
+coverage/
 .nyc_output/
+
+# # # Python関連 # # #
+
+# Pythonの仮想環境フォルダ
+.venv/
+*.venv
+.venv*
+management_env/
+my_cv_project/
+
+# Pythonが自動生成するキャッシュファイル
+**/__pycache__/
+*.pyc
+
+# # # Docker関連 # # #
+# Dockerがローカルに生成する可能性のあるデータ・ログ用フォルダ
+# (名前付きボリュームを使っていても、安全のために記述)
+minio-data/
+mosquitto/data/
+mosquitto/log/
